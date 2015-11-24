@@ -3,8 +3,40 @@ chrome.runtime.sendMessage({}, function(response) {
     if (document.readyState === "complete") {
       clearInterval(readyStateCheckInterval);
 
-      // start of load sequence
+      function get(url) {
+        // Return a new promise.
+        return new Promise(function(resolve, reject) {
+          // Do the usual XHR stuff
+          var req = new XMLHttpRequest();
+          req.open('GET', url);
 
+          req.onload = function() {
+            // This is called even on 404 etc
+            // so check the status
+            if (req.status == 200) {
+              // Resolve the promise with the response text
+              resolve(req.response);
+            }
+            else {
+              // Otherwise reject with the status text
+              // which will hopefully be a meaningful error
+              reject(Error(req.statusText));
+            }
+          };
+
+          // Handle network errors
+          req.onerror = function() {
+            reject(Error("Network Error"));
+          };
+
+          // Make the request
+          req.send();
+        });
+      }
+
+      // need a create link promise, create script promise
+
+      // start of load sequence
       var metaTag = document.querySelector('meta[name="udacity-grader"]');
 
       function injectWidgets () {
