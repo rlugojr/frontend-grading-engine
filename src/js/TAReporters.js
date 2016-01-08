@@ -85,10 +85,9 @@ TA.prototype.not = function (bool) {
 TA.prototype.equals = function (config) {
   var self = this;
   this.queue.add(function () {
-    var expected, noStrict;
+    var expected = null;
     if (typeof config === 'object') {
       expected = config.expected;
-      noStrict = config.noStrict || false;
     } else {
       expected = config;
     }
@@ -96,24 +95,40 @@ TA.prototype.equals = function (config) {
       self.onerror('"equals" needs a string or number value.');
       throw new Error();
     }
-    var equalityFunc = function() {};
-    switch (noStrict) {
-      case true:
-        equalityFunc = function (target) {
-          return target.value == expected;
-        };
-        break;
-      case false:
-        equalityFunc = function (target) {
-          return target.value === expected;
-        };
-        break;
-      default:
-        equalityFunc = function (target) {
-          return target.value === expected;
-        };
-        break;
+    var equalityFunc = function (target) {
+      return target.value === expected;
+    };
+
+    var testResult = self.gradebook.grade({
+      callback: equalityFunc,
+      not: self.gradeOpposite,
+      strictness: self.picky
+    });
+    self.onresult(testResult);
+  });
+}
+
+/**
+ * Check that question values match an expected value.
+ * @param  {*} expected - any value to match against, but typically a string or int.
+ * @param  {boolean} noStrict - check will run as === unless noStrict is true.
+ */
+TA.prototype.equalsOneOf = function (config) {
+  var self = this;
+  this.queue.add(function () {
+    var expected = null;
+    if (typeof config === 'object') {
+      expected = config.expected;
+    } else {
+      expected = config;
     }
+    if (!expected || (expected instanceof Array !== true)) {
+      self.onerror('"equalsOneOf" needs an array of string or number values.');
+      throw new Error();
+    }
+    var equalityFunc = function (target) {
+      return target.value === expected;
+    };
 
     var testResult = self.gradebook.grade({
       callback: equalityFunc,
