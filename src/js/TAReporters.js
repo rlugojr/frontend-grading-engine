@@ -127,6 +127,7 @@ TA.prototype.equalsOneOf = function (config) {
       throw new Error();
     }
     var equalityFunc = function (target) {
+      // loop here
       return target.value === expected;
     };
 
