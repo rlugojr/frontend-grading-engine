@@ -1,8 +1,10 @@
 /**
-Reporters live on the TA and are responsible for:
-  * giving the GradeBook instructions for evaluating the questions it has collected.
-  * instantiating the grading process by calling gradebook.grade()
-
+ * @fileOverview Reporters live on the TA and are responsible for:
+   * giving the GradeBook instructions for evaluating the questions it has collected.
+   * instantiating the grading process by calling gradebook.grade()
+ * @name TAReporters.js<js>
+ * @author Cameron Pittman
+ * @license GPLv3
  */
 
 /**
@@ -34,14 +36,14 @@ TA.prototype.exists = function(bool) {
         break;
       case 'gatherDeepChildElements':
         doesExistFunc = function(target) {
-          var hasElement = false;
+          var doesExist = false;
           if (target.element) {
-            hasElement = true;
+            doesExist = true;
           }
           if (!doesExist) {
             self.onincorrect('does not exist');
           }
-          return hasElement;
+          return doesExist;
         };
         break;
       default:
@@ -440,4 +442,4 @@ TA.prototype._translateConfigToMethods = function(config) {
   return methods;
 };
 
-// TAReporters.js ends here
+// TAReporters.js<js> ends here

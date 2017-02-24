@@ -1,6 +1,9 @@
-/*
-Udacity’s library for immediate front-end feedback.
-*/
+/**
+ * @fileOverview Udacity’s library for immediate front-end feedback.
+ * @name intro.js<js>
+ * @author Cameron Pittman
+ * @license GPLv3
+ */
 
 /**
  * Exposes UdacityFEGradingEngine (Grading Engine) interface
@@ -10,4 +13,4 @@ Udacity’s library for immediate front-end feedback.
   'use strict';
   var exports = {};
 
-// intro.js ends here
+// intro.js<js> ends here

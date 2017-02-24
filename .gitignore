@@ -5,4 +5,14 @@ ext.zip
 TODO
 GE.min.js
 GE.js
-
+.dir-locals.el
+\#*\#
+GTAGS
+GRTAGS
+GPATH
+experiments/
+.tern-port
+.tern-project
+log.md
+build.zip
+global.js

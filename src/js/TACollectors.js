@@ -1,10 +1,15 @@
+/*global Target, GradeBook, Queue, getDomNodeArray */
+
 /**
-The Teaching Assistant (TA) is responsible for:
-  * collecting data from the page and creating a tree of Targets (called a bullseye) representing the information
-  * traverseing the bullseye and reporting relevant data from Targets and grading instructions into a GradeBook.
-  * All collectors return the instance of the TA object for chaining.
-  * Collectors register their operations with the GradeBook, which actually checks the results of the tests.
-*/
+ * @fileOverview The Teaching Assistant (TA) is responsible for:
+ *  • collecting data from the page and creating a tree of Targets (called a bullseye) representing the information
+ *  • traverseing the bullseye and reporting relevant data from Targets and grading instructions into a GradeBook.
+ *  • All collectors return the instance of the TA object for chaining.
+ *  • Collectors register their operations with the GradeBook, which actually checks the results of the tests.
+ * @name TACollectors.js<GE>
+ * @author Cameron Pittman
+ * @license GPLv3
+ */
 
 /**
  * The TA constructor sets default values and instantiates a GradeBook.
@@ -17,7 +22,7 @@ function TA(description) {
   this.picky = false;
   this.queue = new Queue();
   this.description = description;
-};
+}
 
 Object.defineProperties(TA.prototype, {
   childPosition: {
@@ -55,12 +60,21 @@ Object.defineProperties(TA.prototype, {
     get: function() {
       var self = this;
       this.queue.add(function() {
-        // doing more than accessing a property on existing target because counting can move up the bullseye to past Targets. Need to reset operations
+        // doing more than accessing a property on existing target
+        // because counting can move up the bullseye to past
+        // Targets. Need to reset operations
         self._registerOperation('count');
         self._runAgainstNextToBottomTargets(function(target) {
           var length = null;
           try {
-            length = target.children.length;
+            // A `element` is the result of calling `children` (with a
+            // query) that didn’t contain any elements.
+            length = target.children.reduce(function(previous, current) {
+              if(current.element !== null) {
+                return previous + 1;
+              }
+              return previous;
+            }, 0);
           } catch (e) {
             length = 0;
           }
@@ -187,7 +201,7 @@ TA.prototype._traverseTargets = function(callback) {
     node.children.forEach(function(child, index, arr) {
       visitDfs(child, callback);
     });
-  };
+  }
   visitDfs(this.target, callback);
 };
 
@@ -199,7 +213,8 @@ TA.prototype._runAgainstTopTargetOnly = function(callback) {
   var self = this;
   this.target.value = callback(this.target);
 
-  if (this.target.value != undefined) {
+  if (this.target.value !== undefined &&
+      this.target.value !== null) {
     self.gradebook.recordQuestion(this.target);
   } else {
     this.target.children.forEach(function(kid) {
@@ -221,14 +236,15 @@ TA.prototype._runAgainstBottomTargets = function(callback) {
     if (!target.hasChildren && allTargets.indexOf(target.id) > -1) {
       target.value = callback(target);
 
-      if (target.value != undefined) {
+      if (target.value !== undefined &&
+          target.value !== null) {
         self.gradebook.recordQuestion(target);
       } else {
         target.children.forEach(function(kid) {
           self.gradebook.recordQuestion(kid);
         });
       }
-    };
+    }
   });
 };
 
@@ -245,14 +261,15 @@ TA.prototype._runAgainstBottomTargetElements = function(callback) {
     if (!target.hasChildren && allTargets.indexOf(target.id) > -1) {
       target.value = callback(target.element);
 
-      if (target.value != undefined) {
+      if (target.value !== undefined &&
+          target.value !== null) {
         self.gradebook.recordQuestion(target);
       } else {
         target.children.forEach(function(kid) {
           self.gradebook.recordQuestion(kid);
         });
       }
-    };
+    }
   });
 };
 
@@ -267,14 +284,15 @@ TA.prototype._runAgainstNextToBottomTargets = function(callback) {
     if (target.hasChildren && !target.hasGrandkids) {
       target.value = callback(target);
 
-      if (target.value != undefined) {
+      if (target.value !== undefined &&
+          target.value !== null) {
         self.gradebook.recordQuestion(target);
       } else {
         target.children.forEach(function(kid) {
           self.gradebook.recordQuestion(kid);
         });
       }
-    };
+    }
   });
 };
 
@@ -327,6 +345,12 @@ TA.prototype.deepChildren = function(selector) {
         self.onerror('Cannot find elements without a selector.', true);
         throw new Error();
       } else if (target.element) {
+        if(elems.length === 0) {
+          var childTarget = new Target();
+          childTarget.element = null;
+          childTarget.index = null;
+          target.children.push(childTarget);
+        }
         elems.forEach(function(newElem, index) {
           var childTarget = new Target();
           childTarget.element = newElem;
@@ -343,25 +367,24 @@ TA.prototype.children = TA.prototype.deepChildren;
 TA.prototype.get = function(typeOfValue) {
   var self = this;
   switch (typeOfValue) {
-    case 'count':
-      self.count;
-      break;
-    case 'childPosition':
-      self.childPosition;
-      break;
-    case 'innerHTML':
-      self.innerHTML;
-      break;
-    case 'UAString':
-      self.UAString;
-      break;
-    case 'DPR':
-      self.DPR;
-      break;
-    default:
-      self.onerror('Cannot “get”: “' + typeOfValue + '”. Options include: “count”, “childPosition”, “DPR”, “innerHTML”, and “UAString”.');
-      throw new Error();
-      break;
+  case 'count':
+    self.count;
+    break;
+  case 'childPosition':
+    self.childPosition;
+    break;
+  case 'innerHTML':
+    self.innerHTML;
+    break;
+  case 'UAString':
+    self.UAString;
+    break;
+  case 'DPR':
+    self.DPR;
+    break;
+  default:
+    self.onerror('Cannot “get”: “' + typeOfValue + '”. Options include: “count”, “childPosition”, “DPR”, “innerHTML”, and “UAString”.');
+    throw new Error();
   }
 };
 
@@ -391,12 +414,10 @@ TA.prototype.cssProperty = function(property) {
     self._registerOperation('cssProperty');
 
     self._runAgainstBottomTargetElements(function(elem) {
-      var styles = {};
       var style = null;
       try {
         // TODO: this causes a FSL that could affect framerate?
-        styles = window.getComputedStyle(elem);
-        style = styles[property];
+        style = self._getComputedValue(property, elem);
       } catch (e) {
         self.onerror('Cannot get CSS property: “' + property + '”.', true);
       }
@@ -404,6 +425,124 @@ TA.prototype.cssProperty = function(property) {
     });
   });
   return this;
+};
+
+/**
+ * Get a specified CSS property value.
+ * @param {string} property - The CSS property name.
+ * @param {HTMLElement} elem - The Element to get the CSS property value.
+ * @returns {string} Either the CSS computed value or a tweaked value (depending
+ * on the property name).
+ * @throws {Error} Bad arguments.
+ */
+TA.prototype._getComputedValue = function(property, elem) {
+  var self = this,
+      computedStyles = window.getComputedStyle(elem),
+      value = null;
+
+  /**
+   * Calculates the margin from a given side. It should only be used with
+   * element having a normal flow.
+   * @param {string} marginName - The margin side.
+   * @returns {string} The tweaked margin value.
+   * @throws {Error} Bad arguments or the CSS property is invalid.
+   * @todo Implement `marginRight` and `marginBottom`
+   */
+  function getMarginSide(marginName) {
+    var parent = elem.parentElement,
+        // An other container is used to prevent getting the parent padding
+        wrapper = document.createElement('div'),
+
+        // We need children for calculation (min/max)
+        clone = elem.cloneNode(true),
+        result;
+
+    // If the position is different than static, it may use the left property
+    // and it’s also hard to take them into account.
+    if(computedStyles.position !== 'static') {
+      // When both left and right are set, left has precedence over right when
+      // the direction is ltr or right when rtl.
+      throw new Error('“getMargin” only support the “static” position');
+    }
+
+    // Because the wrapper must be without any of those
+    wrapper.style.border = 'none';
+    wrapper.style.padding = '0';
+    wrapper.style.margin = '0';
+    wrapper.style.position = 'static';
+    wrapper.style.display = 'block';
+    wrapper.style.height = 'auto';
+    wrapper.style.width = 'auto';
+
+    wrapper.appendChild(clone);
+    // The parent element of `elem` will get `wrapper` before the `elem` Node
+    parent.insertBefore(wrapper, elem);
+
+    /**
+     * Calculate the offset from a given side. It thus give the margin if used
+     * We never know about custom styleswith a static position and if the actual
+     * We never know about custom stylesside was set.
+     * @param {string} marginName - The name of the margin as camel case.
+     * @returns {int} The calculated margin.
+     * @throws {Error} The {@link marginName} argument isn’t valid.
+     */
+    function calculateMarginForSide(marginName) {
+      var value;
+      switch(marginName) {
+      case 'marginLeft':
+        value = clone.offsetLeft - wrapper.offsetLeft;
+        break;
+      case 'marginTop':
+        value = clone.offsetTop - wrapper.offsetTop;
+        break;
+      case 'marginRight':
+        value = wrapper.clientWidth - (parseInt(window.getComputedStyle(clone).width) +
+                                       calculateMarginForSide('marginLeft'));
+        break;
+      case 'marginBottom':
+        value = wrapper.clientHeight - (parseInt(window.getComputedStyle(clone).height) +
+                                        calculateMarginForSide('marginTop'));
+        break;
+      default:
+        throw new Error('Wrong type of arguments for “marginName”');
+      }
+      return value;
+    }
+
+    // Cache the result if we want to remove the wrapper
+    result = calculateMarginForSide(marginName);
+    wrapper.remove();
+    return result;
+  }
+
+  // Specific tweaks for CSS properties
+  switch(property) {
+  case 'marginTop':
+  case 'marginRight':
+  case 'marginBottom':
+  case 'marginLeft':
+    // Firefox (and Safari?) don’t use the CSS2 specs to calculate the margin
+    // when set to `auto`
+    if(computedStyles[property] === '0px' && computedStyles.display === 'block') {
+      value = getMarginSide(property) + 'px';
+    }
+    break;
+  default:
+    break;
+  }
+
+  // No special tweaks
+  if(value === null) {
+    value = computedStyles[property];
+
+    // A valid CSS value should never be undefined
+    if(value === undefined) {
+      throw new Error();
+    }
+  }
+
+  // Return the tweaked computed value or the actual value if no tweaks
+  return value;
 };
 
 /**
@@ -421,7 +560,7 @@ TA.prototype.attribute = function(attribute) {
       try {
         attrValue = elem.getAttribute(attribute);
       } catch (e) {
-        self.onerror("Cannot get attribute “" + attribute + "”.", true);
+        self.onerror('Cannot get attribute “' + attribute + '”.', true);
       }
       if (attrValue === '') {
         attrValue = true;
@@ -432,6 +571,7 @@ TA.prototype.attribute = function(attribute) {
   return this;
 };
 
+// TODO: Is this even used? Seems to be duplicate of {@link TA.prototype.attribute}
 /**
  * Get any property of an object.
  * @param  {string} attribute - the attribute under examination.
@@ -447,7 +587,7 @@ TA.prototype.property = function(key) {
       try {
         propertyValue = obj[key];
       } catch (e) {
-        self.onerror("Cannot get attribute “" + attribute + "”.", true);
+        self.onerror('Cannot get attribute “' + attribute + '”.', true);
       }
       if (propertyValue === '') {
         propertyValue = true;
@@ -473,68 +613,63 @@ TA.prototype.absolutePosition = function(side) {
       return cStyle.display;
     };
 
-    var selectorFunc = function() {};
-    switch (side) {
+    function isValidSide(side) {
+      if(side === 'top' || side === 'left' || 'bottom' || 'right') {
+        return true;
+      }
+      console.warn('You didn’t pick a side for absolutePosition! Options are “top”, “left”, “bottom” and “right”.');
+      return false;
+    }
+
+    function getOffsetBySide(element, sideName) {
+      var offset = NaN;
+
+      switch (sideName) {
       case 'top':
-        var selectorFunc = function(elem) {
-          var displayType = getDisplayType(elem);
-          var value = NaN;
-          if (displayType === 'block') {
-            value = elem.offsetTop;
-          } else if (displayType === 'inline') {
-            value = elem.getBoundingClientRect()[side];
-          };
-          return value;
-        };
+        offset = element.offsetTop;
         break;
       case 'left':
-        var selectorFunc = function(elem) {
-          var displayType = getDisplayType(elem);
-          var value = NaN;
-          if (displayType === 'block') {
-            value = elem.offsetLeft;
-          } else if (displayType === 'inline') {
-            value = elem.getBoundingClientRect()[side];
-          };
-          return value;
-        };
+        offset = element.offsetLeft;
         break;
       case 'bottom':
-        var selectorFunc = function(elem) {
-          var displayType = getDisplayType(elem);
-          var value = NaN;
-          if (displayType === 'block') {
-            value = elem.offsetTop + elem.offsetHeight;
-          } else if (displayType === 'inline') {
-            value = elem.getBoundingClientRect()[side];
-          };
-          if (value === Math.max(document.documentElement.clientHeight, window.innerHeight || 0)) {
-            value = 'max';
-          };
-          return value;
-        };
+        offset = element.offsetTop + element.offsetHeight;
         break;
       case 'right':
-        var selectorFunc = function(elem) {
-          var displayType = getDisplayType(elem);
-          var value = NaN;
-          if (displayType === 'block') {
-            value = elem.offsetLeft + elem.offsetWidth;
-          } else if (displayType === 'inline') {
-            value = elem.getBoundingClientRect()[side];
-          };
-          if (value === Math.max(document.documentElement.clientWidth, window.innerWidth || 0)) {
-            value = 'max';
-          };
-          return value;
-        };
+        offset = element.offsetLeft + element.offsetWidth;
         break;
-      default:
-        selectorFunc = function() {
-          console.log("You didn’t pick a side for absolutePosition! Options are “top”, “left”, “bottom” and “right”.");
-          return NaN;
-        };
-        break;
+      }
+
+      return offset;
+    }
+
+    var selectorFunc = function(elem) {
+      var displayType = getDisplayType(elem);
+      var value = NaN;
+      var maxSize;
+
+      if(!isValidSide(side)) {
+        return value;
+      }
+
+
+      if (displayType === 'block') {
+        value = getOffsetBySide(elem, side);
+      } else if (displayType === 'inline') {
+        value = elem.getBoundingClientRect()[side];
+      }
+
+      // To get the widest size of the window, we need to get the biggest value of client<Size> and inner<Size>.
+      if(side === 'bottom') {
+        // Get the widest window height
+        maxSize = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+        value = value === maxSize ? 'max' : value ;
+      } else if(side === 'right') {
+        // Get the widest window width
+        maxSize = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+        value = value === maxSize ? 'max' : value;
+      }
+
+      return value;
     };
 
     self._runAgainstBottomTargetElements(function(elem) {
@@ -542,7 +677,7 @@ TA.prototype.absolutePosition = function(side) {
       try {
         absPos = selectorFunc(elem);
       } catch (e) {
-        self.onerror("Cannot get absolute position of “" + side + "”.", true);
+        self.onerror('Cannot get absolute position of “' + side + '”.', true);
         throw new Error();
       }
       return absPos;
@@ -573,4 +708,4 @@ TA.prototype.waitForEvent = function(eventName) {
   return this;
 };
 
-// TACollectors.js ends here
+// TACollectors.js<js> ends here

@@ -1,9 +1,17 @@
-/*
-  Expose functions that create and monitor tests.
-*/
+/*global testWidget, Suite, testResults */
 
+/**
+ * @fileOverview  Expose functions that create and monitor tests.
+ * @name registrar.js<js>
+ * @author Cameron Pittman
+ * @author Etienne Prud’homme
+ * @license GPLv3
+ */
+
+var numberOfTests = 0,
+    registeredTests = 0;
 /*
-The hotel simply changes the attributes on each web component
+ The hotel simply changes the attributes on each web component
  */
 var hotel = {
   occupiedSuites: [],
@@ -36,8 +44,7 @@ Object.defineProperties(hotel, {
   },
   allCorrect: {
     get: function () {
-      var allCorrect = false;
-      (this.numberOfSuites === this.numberOfPassedSuites) ? allCorrect = true : allCorrect = false;
+      var allCorrect = (this.numberOfSuites === this.numberOfPassedSuites);
       // TODO: maybe emit an event if all of them pass?
       return allCorrect;
     }
@@ -75,6 +82,36 @@ function registerSuite(rawSuite) {
 var userData = [];
 var isOn = false;
 
+function startTests() {
+
+  userData.forEach(function(_suite) {
+    numberOfTests += _suite.tests.length;
+  });
+
+  return new Promise(function(resolve, reject) {
+    userData.forEach(function (_suite) {
+      var newSuite = registerSuite({
+        name: _suite.name,
+        code: _suite.code
+      });
+      _suite.tests.forEach(function (test) {
+        registeredTests++;
+
+        // console.log('test number: ', registeredTests);
+        try {
+          newSuite.registerTest({
+            description: test.description,
+            definition: test.definition,
+            flags: test.flags
+          });
+        } catch(e) {
+          console.warn(e.message);
+        }
+      });
+    });
+  });
+}
+
 /**
  * For use only when loading a new JSON with user data about the tests they want to run
  * @param  {JSON} suitesJSON Everything the GE needs to know about your tests
@@ -92,33 +129,28 @@ function registerSuites(suitesJSON) {
   }
   if (isOn) {
     startTests();
+    // console.log('startTests');
   }
-};
-
-function startTests() {
-  userData.forEach(function (_suite) {
-    var newSuite = registerSuite({
-      name: _suite.name,
-      code: _suite.code
-    });
-
-    _suite.tests.forEach(function (test) {
-      newSuite.registerTest({
-        description: test.description,
-        definition: test.definition,
-        flags: test.flags
-      });
-    });
-  });
-};
+}
 
 function turnOn() {
   if (!isOn) {
-    testWidget.buildWidget();
-    isOn = true;
-    startTests();
+    testWidget.buildWidget().then(function() {
+      isOn = true;
+      // console.log('enters startTests');
+      startTests();
+
+      if(registeredTests === numberOfTests) {
+        window.dispatchEvent(new CustomEvent('tests-registered', {
+          numberOfTests: numberOfTests
+        }));
+      }
+      // console.log('registeredTests = ', registeredTests);
+      // console.log('numberOfTests = ', numberOfTests);
+      // console.log('leaves startTests');
+    });
   }
-};
+}
 
 function turnOff () {
   hotel.occupiedSuites.forEach(function (suite) {
@@ -129,7 +161,7 @@ function turnOff () {
   hotel.occupiedSuites = [];
   testWidget.killWidget();
   isOn = false;
-};
+}
 
 function debug() {
   hotel.occupiedSuites.forEach(function (suite) {
@@ -137,11 +169,11 @@ function debug() {
     suite.getIncorrectInfo();
     suite.getValues();
   });
-};
+}
 
 exports.debug = debug;
 exports.turnOn = turnOn;
 exports.turnOff = turnOff;
 exports.registerSuites = registerSuites;
 
-// registrar.js ends here
+// registrar.js<js> ends here
